@@ -18,7 +18,7 @@ type: custom:ptz-dpad-card
 camera: camera.wohnzimmer_hd_stream
 ```
 
-Die Karte sucht am **Gerät der Kamera** nach Buttons, deren Entity-ID auf `move_up`, `move_down`, `move_left`, `move_right` (bzw. `ptz_up`, `_up` …) endet – das passt direkt zur **Tapo Control**-Integration. `calibrate` wird automatisch auf die Mitte gelegt. Ist die Kamera eine ONVIF-Kamera ohne solche Buttons, wird `onvif.ptz` benutzt.
+Die Karte sucht Buttons/Scripts mit hoch/runter/links/rechts (englisch oder deutsch) in Entity-ID, Übersetzungsschlüssel oder Namen – zuerst am **Gerät der Kamera**, dann über den **Basisnamen** (z. B. `camera.flur` → `button.flur_*`, auch wenn die Kamera aus Frigate kommt) und zuletzt im **gleichen Bereich**. Das passt direkt zur **Tapo Control**-Integration. `calibrate` wird automatisch auf die Mitte gelegt. Ist die Kamera eine ONVIF-Kamera ohne solche Buttons, wird `onvif.ptz` benutzt.
 
 ## Manuell / beliebige Entitäten
 
@@ -56,6 +56,7 @@ stop: button.garten_ptz_stop   # wird beim Loslassen gedrückt
 | `repeat_interval` | `0` | ms – wiederholt den Befehl solange gedrückt gehalten wird |
 | `mode` | auto | `entity` oder `onvif` erzwingen |
 | `onvif_speed` / `onvif_duration` | `0.5` / `0.4` | Nur ONVIF-Modus |
+| `debug` | `false` | Schreibt die erkannten Entitäten in die Browser-Konsole (F12) |
 | `size` | `220` | Maximale Breite in px |
 | `arrow_color` `ring_color` `center_color` | Theme | Farben, z. B. `"#3a86de"` |
 

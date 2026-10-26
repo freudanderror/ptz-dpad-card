@@ -5,21 +5,28 @@
  * Reolink, AiDot, ...) or ONVIF (onvif.ptz). Auto-detects PTZ entities from
  * the camera's device.
  */
-const CARD_VERSION = "1.0.0";
+const CARD_VERSION = "1.0.1";
 
 const DIRS = ["up", "right", "down", "left"];
 const ANGLE = { up: -90, right: 0, down: 90, left: 180 };
 
-// entity_id endings that are matched during auto-detection (first match wins)
-const SUFFIXES = {
-  up: ["move_up", "ptz_up", "tilt_up", "pan_up", "_up"],
-  down: ["move_down", "ptz_down", "tilt_down", "pan_down", "_down"],
-  left: ["move_left", "ptz_left", "pan_left", "_left"],
-  right: ["move_right", "ptz_right", "pan_right", "_right"],
-  stop: ["ptz_stop", "move_stop", "stop_ptz", "_stop"],
-  center: ["calibrate", "ptz_calibrate", "ptz_home", "go_home", "home_position"],
+// Word patterns matched against entity_id, translation_key and friendly name
+// (English + German, word boundaries = start/end/_/space/-)
+const B = "(?:^|[_\\s.-])";
+const E = "(?:$|[_\\s.-])";
+const PATTERNS = {
+  up: new RegExp(`${B}(up|hoch|oben|aufwarts|aufwärts|nach_oben)${E}`, "i"),
+  down: new RegExp(`${B}(down|runter|unten|abwarts|abwärts|nach_unten)${E}`, "i"),
+  left: new RegExp(`${B}(left|links|nach_links)${E}`, "i"),
+  right: new RegExp(`${B}(right|rechts|nach_rechts)${E}`, "i"),
+  stop: new RegExp(`${B}(stop|stopp|anhalten)${E}`, "i"),
+  center: new RegExp(`(calibrat|kalibr|home_position|go_home|ptz_home|${B}home${E}|${B}mitte${E})`, "i"),
 };
+// Extra hint words: only entities that also look like PTZ count for stop/home
+const PTZ_HINT = /(move|ptz|pan|tilt|beweg|schwenk|neig|dreh|calibrat|kalibr)/i;
 const PRESSABLE = ["button", "input_button", "script"];
+// Common camera entity suffixes stripped to find the base name (camera.flur_hd_stream -> flur)
+const CAM_SUFFIX = /_(hd|sd)(_stream)?$|_(main|sub|mainstream|substream|stream|live|kamera|camera|cam|fluent|clear|high|low)$/i;
 
 const ONVIF_MAP = {
   up: { tilt: "UP" },
@@ -121,25 +128,59 @@ class PtzDpadCard extends HTMLElement {
     const out = {};
     const cam = this._config.camera;
     const reg = this._hass.entities || {};
-    if (!cam || !reg[cam]) return out;
+    if (!cam) return out;
 
-    const camEntry = reg[cam];
+    const camEntry = reg[cam] || {};
     if (camEntry.platform === "onvif") out.__onvif = true;
-    const deviceId = camEntry.device_id;
-    if (!deviceId) return out;
 
-    const candidates = Object.values(reg).filter(
-      (e) => e.device_id === deviceId && PRESSABLE.includes(e.entity_id.split(".")[0])
-    );
+    const pressable = Object.values(reg).filter((e) => PRESSABLE.includes(e.entity_id.split(".")[0]));
 
-    for (const [dir, suffixes] of Object.entries(SUFFIXES)) {
-      for (const suf of suffixes) {
-        const hit = candidates.find((e) => e.entity_id.split(".")[1].endsWith(suf));
-        if (hit) {
-          out[dir] = hit.entity_id;
-          break;
-        }
+    // Base name of the camera, e.g. camera.flur_hd_stream -> "flur"
+    let base = cam.split(".")[1];
+    for (let i = 0; i < 3; i++) base = base.replace(CAM_SUFFIX, "");
+
+    // Candidate pools, tried in this order:
+    // 1) same device  2) same area + same integration  3) entity_id starts with camera base name
+    const pools = [];
+    if (camEntry.device_id) pools.push(pressable.filter((e) => e.device_id === camEntry.device_id));
+    if (base) pools.push(pressable.filter((e) => e.entity_id.split(".")[1].startsWith(base + "_")));
+    const dev = camEntry.device_id && this._hass.devices?.[camEntry.device_id];
+    const area = camEntry.area_id || dev?.area_id;
+    if (area) {
+      pools.push(
+        pressable.filter((e) => {
+          const a = e.area_id || this._hass.devices?.[e.device_id]?.area_id;
+          return a === area;
+        })
+      );
+    }
+
+    const texts = (e) => {
+      const st = this._hass.states[e.entity_id];
+      return [e.entity_id.split(".")[1], e.translation_key || "", st?.attributes?.friendly_name || "", e.name || ""];
+    };
+
+    for (const pool of pools) {
+      if (!pool.length) continue;
+      const found = {};
+      for (const [dir, re] of Object.entries(PATTERNS)) {
+        const needsHint = dir === "stop" || dir === "center";
+        // prefer entities that also look like PTZ (move/ptz/pan/tilt ...)
+        const matches = pool.filter((e) => texts(e).some((t) => re.test(t)));
+        const hinted = matches.filter((e) => texts(e).some((t) => PTZ_HINT.test(t)));
+        const hit = hinted[0] || (needsHint && dir === "stop" ? null : matches[0]);
+        if (hit) found[dir] = hit.entity_id;
       }
+      // a pool counts only if it delivered at least two directions
+      if (DIRS.filter((d) => found[d]).length >= 2) {
+        Object.assign(out, found);
+        break;
+      }
+    }
+
+    if (this._config.debug) {
+      // eslint-disable-next-line no-console
+      console.info("[ptz-dpad-card] Auto-Erkennung für", cam, "→", out, "Basisname:", base);
     }
     return out;
   }
