@@ -1,5 +1,7 @@
 # PTZ D-Pad Card
 
+![PTZ D-Pad Card](preview.png)
+
 Runde Pan/Tilt-Steuerung für Home Assistant – hoch, rechts, runter, links im Kreis angeordnet, optionaler Mittelknopf.
 Funktioniert universell mit **button / input_button / script / switch**-Entitäten (Tapo Control, Reolink, AiDot, …) oder direkt mit **ONVIF** (`onvif.ptz`).
 
