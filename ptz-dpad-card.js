@@ -5,7 +5,7 @@
  * Reolink, AiDot, ...) or ONVIF (onvif.ptz). Auto-detects PTZ entities from
  * the camera's device.
  */
-const CARD_VERSION = "1.0.1";
+const CARD_VERSION = "1.0.2";
 
 const DIRS = ["up", "right", "down", "left"];
 const ANGLE = { up: -90, right: 0, down: 90, left: 180 };
@@ -25,7 +25,7 @@ const PATTERNS = {
 // Extra hint words: only entities that also look like PTZ count for stop/home
 const PTZ_HINT = /(move|ptz|pan|tilt|beweg|schwenk|neig|dreh|calibrat|kalibr)/i;
 const PRESSABLE = ["button", "input_button", "script"];
-// Common camera entity suffixes stripped to find the base name (camera.flur_hd_stream -> flur)
+// Common camera entity suffixes stripped to find the base name (camera.my_camera_hd_stream -> my_camera)
 const CAM_SUFFIX = /_(hd|sd)(_stream)?$|_(main|sub|mainstream|substream|stream|live|kamera|camera|cam|fluent|clear|high|low)$/i;
 
 const ONVIF_MAP = {
@@ -72,10 +72,10 @@ class PtzDpadCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config) throw new Error("Ungültige Konfiguration");
+    if (!config) throw new Error("Invalid configuration");
     const hasManual = DIRS.some((d) => config[d]);
     if (!config.camera && !hasManual) {
-      throw new Error("Bitte 'camera' oder mindestens eine Richtung (up/down/left/right) angeben");
+      throw new Error("Please set 'camera' or at least one direction (up/down/left/right)");
     }
     this._config = {
       repeat_interval: 0,
@@ -135,7 +135,7 @@ class PtzDpadCard extends HTMLElement {
 
     const pressable = Object.values(reg).filter((e) => PRESSABLE.includes(e.entity_id.split(".")[0]));
 
-    // Base name of the camera, e.g. camera.flur_hd_stream -> "flur"
+    // Base name of the camera, e.g. camera.my_camera_hd_stream -> "my_camera"
     let base = cam.split(".")[1];
     for (let i = 0; i < 3; i++) base = base.replace(CAM_SUFFIX, "");
 
@@ -180,7 +180,7 @@ class PtzDpadCard extends HTMLElement {
 
     if (this._config.debug) {
       // eslint-disable-next-line no-console
-      console.info("[ptz-dpad-card] Auto-Erkennung für", cam, "→", out, "Basisname:", base);
+      console.info("[ptz-dpad-card] auto-detection for", cam, "->", out, "base name:", base);
     }
     return out;
   }
@@ -393,7 +393,7 @@ const SCHEMA = [
   },
   {
     type: "expandable",
-    title: "Richtungen (leer = automatisch erkennen)",
+    title: "Directions (empty = auto-detect)",
     flatten: true,
     schema: [
       { name: "up", selector: { entity: { domain: PTZ_DOMAINS } } },
@@ -406,7 +406,7 @@ const SCHEMA = [
   },
   {
     type: "expandable",
-    title: "Verhalten & Aussehen",
+    title: "Behavior & appearance",
     flatten: true,
     schema: [
       { name: "repeat_interval", selector: { number: { min: 0, max: 3000, step: 50, mode: "box", unit_of_measurement: "ms" } } },
@@ -419,20 +419,20 @@ const SCHEMA = [
 ];
 
 const LABELS = {
-  camera: "Kamera (für Auto-Erkennung)",
+  camera: "Camera (for auto-detection)",
   name: "Name",
-  show_name: "Name anzeigen",
-  up: "Hoch",
-  down: "Runter",
-  left: "Links",
-  right: "Rechts",
-  center: "Mitte (z. B. Kalibrieren)",
-  stop: "Stopp beim Loslassen",
-  repeat_interval: "Wiederholen beim Halten (0 = aus)",
-  size: "Maximale Größe",
-  arrow_color: "Pfeilfarbe (z. B. #3a86de)",
-  ring_color: "Ringfarbe",
-  center_color: "Farbe Mittelring",
+  show_name: "Show name",
+  up: "Up",
+  down: "Down",
+  left: "Left",
+  right: "Right",
+  center: "Center (e.g. calibrate)",
+  stop: "Stop on release",
+  repeat_interval: "Repeat while held (0 = off)",
+  size: "Maximum size",
+  arrow_color: "Arrow color (e.g. #3a86de)",
+  ring_color: "Ring color",
+  center_color: "Center ring color",
 };
 
 class PtzDpadCardEditor extends HTMLElement {
@@ -471,7 +471,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "ptz-dpad-card",
   name: "PTZ D-Pad Card",
-  description: "Runde Kamera-Steuerung (hoch/runter/links/rechts) für Tapo, Reolink, ONVIF & Co.",
+  description: "Round PTZ control pad (up/down/left/right) for Tapo, Reolink, ONVIF and more.",
   preview: true,
   documentationURL: "https://github.com/freudanderror/ptz-dpad-card",
 });

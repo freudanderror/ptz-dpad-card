@@ -2,81 +2,102 @@
 
 ![PTZ D-Pad Card](preview.png)
 
-Runde Pan/Tilt-Steuerung für Home Assistant – hoch, rechts, runter, links im Kreis angeordnet, optionaler Mittelknopf.
-Funktioniert universell mit **button / input_button / script / switch**-Entitäten (Tapo Control, Reolink, AiDot, …) oder direkt mit **ONVIF** (`onvif.ptz`).
+A round pan/tilt control pad for Home Assistant: up, right, down and left arranged in a circle, with an optional center button.
+Works with any **button / input_button / script / switch** entities (Tapo Control, Reolink, AiDot, …) or directly with **ONVIF** (`onvif.ptz`).
 
-## Installation über HACS
+> **Heads-up:** This card was vibe coded. I needed a simple, good-looking PTZ control for my own cameras, couldn't find one, and figured others might want it too, so here it is for everyone. It works well for me, but it's a small hobby project, not a polished product. Issues and pull requests are welcome.
 
-1. HACS → ⋮ → **Benutzerdefinierte Repositories**
-2. URL deines Repos eintragen, Typ **Dashboard** (früher „Lovelace/Plugin“)
-3. „PTZ D-Pad Card“ installieren, Browser neu laden (Cache leeren)
+## Installation
 
-Manuell: `dist/ptz-dpad-card.js` nach `/config/www/` kopieren und als Ressource `/local/ptz-dpad-card.js` (JavaScript-Modul) eintragen.
+### HACS (recommended)
 
-## Minimal – Auto-Erkennung
+1. HACS → ⋮ → **Custom repositories**
+2. Add `https://github.com/freudanderror/ptz-dpad-card` with type **Dashboard**
+3. Install **PTZ D-Pad Card** and reload your browser (clear the cache)
+
+### Manual
+
+1. Copy `ptz-dpad-card.js` to `/config/www/`
+2. Settings → Dashboards → ⋮ → Resources → add `/local/ptz-dpad-card.js` as **JavaScript module**
+   (the Resources menu only appears with *Advanced mode* enabled in your user profile)
+3. Reload your browser
+
+## Quick start (auto-detection)
 
 ```yaml
 type: custom:ptz-dpad-card
-camera: camera.wohnzimmer_hd_stream
+camera: camera.my_camera
 ```
 
-Die Karte sucht Buttons/Scripts mit hoch/runter/links/rechts (englisch oder deutsch) in Entity-ID, Übersetzungsschlüssel oder Namen – zuerst am **Gerät der Kamera**, dann über den **Basisnamen** (z. B. `camera.flur` → `button.flur_*`, auch wenn die Kamera aus Frigate kommt) und zuletzt im **gleichen Bereich**. Das passt direkt zur **Tapo Control**-Integration. `calibrate` wird automatisch auf die Mitte gelegt. Ist die Kamera eine ONVIF-Kamera ohne solche Buttons, wird `onvif.ptz` benutzt.
+The card looks for buttons or scripts named up/down/left/right (English or German) in the entity ID, translation key or friendly name. It searches in this order:
 
-## Manuell / beliebige Entitäten
+1. entities on the **same device** as the camera
+2. entities sharing the camera's **base name** (`camera.my_camera` or `camera.my_camera_hd_stream` → `button.my_camera_*`), which also works when the camera entity comes from a different integration such as Frigate
+3. entities in the **same area**
+
+This matches the **Tapo Control** integration out of the box. A `calibrate` button is mapped to the center automatically. For ONVIF cameras without such buttons, `onvif.ptz` is used.
+
+If nothing is detected, set `debug: true` and check the browser console (F12), or map the entities manually.
+
+## Manual mapping
 
 ```yaml
 type: custom:ptz-dpad-card
-name: Flur
-up: button.flur_move_up
-down: button.flur_move_down
-left: button.flur_move_left
-right: button.flur_move_right
-center: button.flur_calibrate
+name: My Camera
+up: button.my_camera_move_up
+down: button.my_camera_move_down
+left: button.my_camera_move_left
+right: button.my_camera_move_right
+center: button.my_camera_calibrate
 ```
 
-Jede Richtung kann auch eine Aktion sein:
+Each direction can also be an action:
 
 ```yaml
 type: custom:ptz-dpad-card
-camera: camera.garten
+camera: camera.my_camera
 left:
   action: perform-action
   perform_action: onvif.ptz
-  target: { entity_id: camera.garten }
+  target: { entity_id: camera.my_camera }
   data: { pan: LEFT, move_mode: ContinuousMove, continuous_duration: 0.5 }
-stop: button.garten_ptz_stop   # wird beim Loslassen gedrückt
+stop: button.my_camera_ptz_stop   # pressed when you release the button
 ```
 
-## Optionen
+## Options
 
-| Option | Standard | Beschreibung |
+| Option | Default | Description |
 |---|---|---|
-| `camera` | – | Kamera-Entität, für Auto-Erkennung und Namen |
-| `name` | Name der Kamera | Überschrift; `show_name: false` blendet aus |
-| `up` `down` `left` `right` `center` | auto | Entity-ID oder Aktion (s. oben) |
-| `stop` | auto | Wird beim Loslassen ausgeführt (`stop_on_release: false` zum Abschalten) |
-| `repeat_interval` | `0` | ms – wiederholt den Befehl solange gedrückt gehalten wird |
-| `mode` | auto | `entity` oder `onvif` erzwingen |
-| `onvif_speed` / `onvif_duration` | `0.5` / `0.4` | Nur ONVIF-Modus |
-| `debug` | `false` | Schreibt die erkannten Entitäten in die Browser-Konsole (F12) |
-| `size` | `220` | Maximale Breite in px |
-| `arrow_color` `ring_color` `center_color` | Theme | Farben, z. B. `"#3a86de"` |
+| `camera` | – | Camera entity, used for auto-detection and the title |
+| `name` | camera name | Title; `show_name: false` hides it |
+| `up` `down` `left` `right` `center` | auto | Entity ID or action (see above) |
+| `stop` | auto | Run on release (`stop_on_release: false` to disable) |
+| `repeat_interval` | `0` | ms, repeats the command while the button is held |
+| `mode` | auto | Force `entity` or `onvif` |
+| `onvif_speed` / `onvif_duration` | `0.5` / `0.4` | ONVIF mode only |
+| `debug` | `false` | Logs the detected entities to the browser console |
+| `size` | `220` | Maximum width in px |
+| `arrow_color` `ring_color` `center_color` | theme | Colors, e.g. `"#3a86de"` |
 
-Theme-Variablen: `--ptz-arrow-color`, `--ptz-ring-color`, `--ptz-center-color`.
+Theme variables: `--ptz-arrow-color`, `--ptz-ring-color`, `--ptz-center-color`.
 
-Die Karte hat einen visuellen Editor (Dashboard → Karte hinzufügen → „PTZ D-Pad Card“).
+The card has a visual editor (Edit dashboard → Add card → "PTZ D-Pad Card").
 
-## Tipp: über das Kamerabild legen
+## Tip: place it under the live view
 
 ```yaml
 type: vertical-stack
 cards:
   - type: picture-entity
-    entity: camera.wohnzimmer_hd_stream
+    entity: camera.my_camera
     camera_view: live
     show_state: false
   - type: custom:ptz-dpad-card
-    camera: camera.wohnzimmer_hd_stream
+    camera: camera.my_camera
     show_name: false
     size: 180
 ```
+
+## License
+
+MIT
